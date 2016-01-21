@@ -9,6 +9,14 @@ import numba as nb
 import timeit as ti
 from numpy import *; from numpy.linalg import *; import numpy as np
 import matplotlib.pyplot as plt; from matplotlib import cm
+import symarch 
+import os
+
+##############Archiwizacja#####################################################
+notatki = " Krótka notatka na temat testu"
+r = symarch.create_proba('poussile0')
+proba, zdjecia, obliczenia = symarch.create_run(r, rewrite=1, test='run001')
+
 #### New Re and omega calculations ############################################
 H = 0.05 # wielkość geometryczna harakterystyczna
 LdH = 10 # stosunek dlugosci do wielkosci harakterystycznej
@@ -36,6 +44,7 @@ dt = uLB * dy /ud # wyliczam czas siatki
 
 niLB = (dt/dy**2)*1/Re
 omega = 1.0 / (3.*niLB+0.5)
+tau = 1/omega
 aomega = np.ones((ny,nx))*omega
 
 
@@ -46,7 +55,11 @@ x = np.linspace(0,ny,ny)
 profile = lambda x: a*x*(x-ny)
 puLB = uLB*np.ones(x.shape)#profile(x)
 
-###### Lattice Constants ######################################################
+
+parametry = ['Re', 'ny', 'nx', 'uLB', 'tau', 'notatki']
+parametryd = {key:eval(key) for key in parametry}
+symarch.arch_param(proba, parametryd, parametry)
+##### Lattice Constants ######################################################
 c = array([[0,0], [1,0],[0,1],[-1,0], [0,-1], [1,1], [-1,1], [-1,-1], [1, -1]]) # Lattice velocities.
 q = 9
 
@@ -124,16 +137,7 @@ def stream(fin):
             f[8, j, i] = f[8, j-1, i-1]
     return f
     
-#@nb.jit(nopython=True)     
-#def obstacling1(fout, fin, obstacle):
-#    for i in range(nx):
-#        for j in range(ny):
-#            if obstacle[j,i] == 1: 
-#                for n,m in zip(range(q), noslip):
-#                    #index = noslip[i]
-#                    fout[n,j,i] = fin[m ,j,i]    
-#    return fout
-#    
+
 @nb.jit(nopython=True)
 def obstacling(f, obstacle):
     fout = f.copy()
@@ -207,96 +211,56 @@ def power_law(s,n=1,m=niLB,li=100):
     
 ####################################### Inicjalizacja #########################
     
-vel = np.ones((2,ny,nx))*uLB*0 # pole prędkości w t = 0
+vel = np.ones((2,ny,nx))*uLB # pole prędkości w t = 0
 rho = np.ones((ny, nx)) # pole gęstości w t = 0
 feq = rownowaga(rho, vel) # równowagowa funkcja rozkładu
 f = feq.copy() # tablica rozkładu dla t-1
-#fout = feq.copy()
+f_history = np.ones((9,ny,nx,100))
 
 image = 0
 count=0
 ######################### Pętla################################################
 maxIter =15000*20 # liczba iteracji
 u = vel
-#u[0,1:-1,0] = puLB[1:-1]
 u1 = u.copy()
 u1[0,1:-1,0] = puLB[1:-1]
+
 t0 = ti.default_timer()
-tau = 1/omega
+
 rho_history = []
-rho_in = 1.2
+
 ############################## Geometria ######################################
 obstacle = fromfunction(lambda x,y: x>10000000 , (ny,nx))       
 obstacle[0,:] = 1; obstacle[-1,:] = 1
 
 for time in range(maxIter):
-    
-    ##Implementacja warunków brzegowych
-    # Wlot
-#    puls = uLB*(sin((time*100/maxIter)*np.pi))
-#    u1[0,1:-1,0] =uLB +  puls
-#    if uLB +  puls < 0:
-#        u1[0,1:-1,0] = 0
     rho = sumpop(f)
+    rho_history.append(abs(average(rho)))
+    ##Implementacja warunków brzegowych
+    # Wlot    
     rho[1:-1,0] = 1./(1.-u1[0,1:-1,0]) * (sumpop(f[i2,1:-1,0])+2.*sumpop(f[i1,1:-1,0]))
-#    
-#    rho[[0,-1], 0] = rho[[1,-2], 0] + (rho[[1,-2], 0] - rho[[2,-3], 0] )
-#    f[1, -1, 0] = f[3, -1, 0] 
-#    f[2, -1, 0] = f[4, -1, 0] 
-#    f[5, -1, 0] = f[7, -1, 0] 
-#    
-#    f[1, 0, 0] = f[3, 0, 0] 
-#    f[4, 0, 0] = f[2, 0, 0] 
-#    f[7, 0, 0] = f[5, 0, 0]
-    
+
     f[1,1:-1,0] = f[3,1:-1,0] + (2/3)*rho[1:-1,0]*u1[0,1:-1,0]
     f[5,1:-1,0] = f[7,1:-1,0] - (1/2)*(f[2,1:-1,0] - f[4,1:-1,0]) + (1/6)*rho[1:-1,0]*u1[0,1:-1,0] 
     f[8,1:-1,0] = f[6,1:-1,0] + (1/2)*(f[2,1:-1,0] - f[4,1:-1,0]) + (1/6)*rho[1:-1,0]*u1[0,1:-1,0] 
     # Wylot
     f[i1,1:-1,-1] = f[i1,1:-1,-2] 
-    ##### PRESURE  ##########
-#    ux = 1 - (f[0,1:-1,0] + f[2,1:-1,0] + f[4,1:-1,0] + 2*(f[3,1:-1,0] + f[6,1:-1,0]) + f[7,1:-1,0] )/rho_in
-#    f[1,1:-1,0] = f[3,1:-1,0] + (2/3)*rho_in*ux
-#    f[5,1:-1,0] = f[7,1:-1,0] - (1/2)*(f[2,1:-1,0] - f[4,1:-1,0]) + (1/6)*rho_in*ux
-#    f[8,1:-1,0] = f[6,1:-1,0] + (1/2)*(f[2,1:-1,0] - f[4,1:-1,0]) + (1/6)*rho_in*ux
-#    
-#    f[1, -1, 0] = f[3, -1, 0]
-#    f[2, -1, 0] = f[4, -1, 0]
-#    f[5, -1, 0] = f[7, -1, 0]
-#    f[6, -1, 0] = 0.5*(rho_in - (f[0, -1, 0] + f[1, -1, 0] + f[2, -1, 0] + f[3, -1, 0] + f[4, -1, 0] + f[5, -1, 0] + f[7, -1, 0]))
-#    f[8, -1, 0] = f[6, -1, 0]
-#    
-#    f[1, 0, 0] = f[3, 0, 0]
-#    f[2, 0, 0] = f[4, 0, 0]
-#    f[8, 0, 0] = f[6, 0, 0]
-#    f[7, 0, 0] = 0.5*(rho_in - (f[0, 0, 0] + f[1, 0, 0] + f[2, 0, 0] + f[3, 0, 0] + f[4, 0, 0] + f[8, 0, 0] + f[6, 0, 0]))
-#    f[5, 0, 0] = f[7, 0, 0]
-#    
-#    rho = sumpop(f)
+    
+    ## Pole prędkości
     u = ulocity(f, rho)
 
     
-#    deltar = average(rho)-1
-#    rho = rho - deltar
-
-    rho_history.append(abs(average(rho)))
-#    u[1,:,0] = 0
+    ## Lattice Boltzmann
     feq = rownowaga(rho,u)
-    
-#    f[i3,0,:] = f[i1,0,:] + feq[i3,0,:] - f[i1,0,:]  
-#    s = shear(f,feq,aomega)
-#    aomega = power_law(s,1)
+    ## Uwzględnienie lepkości ######
+#    s = shear(f,feq,aomega)     ###
+#    aomega = power_law(s,1)     ###
+    ################################
     f = collision(f,feq,aomega)
     f = obstacling(f, obstacle)
     f = stream(f)
-    
-#    f[[2,4],1:-1,0] = 1/9
-    # Ściany i wszystkie nie fluidy
-    
-    
-    
-#    f[i3,:,0] = fout[i3,:,-1]
-#    f[i1,:,-1] = fout[i1,:,0]
+    ## Zapis f
+    f_history[:,:,:,time%100] = f
     ##Wizualizacja
     if (time%100==0): # 
         t1 = ti.default_timer()
@@ -324,10 +288,11 @@ for time in range(maxIter):
         plt.plot(linspace(0,len(rho_history),len(rho_history)),rho_history)
         plt.xlim([0,maxIter])        
         
-        plt.savefig('./Zdjecia/'+'{0:06d}'.format(image)+".png")
+        plt.savefig(os.path.join(zdjecia,'f{0:06d}.png'.format(image)))
         plt.clf();
         image += 1
         count += 1
+        np.save(os.path.join(obliczenia,'f{0:06d}'.format(image)),f_history)
 #########CURVE FITTING #######################################################
 x = linspace(0,ny,len(u[1,:,0]))
 y = sqrt(u[0]**2+u[1]**2)[:,-1]/uLB
