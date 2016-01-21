@@ -15,7 +15,7 @@ import os
 ##############Archiwizacja#####################################################
 notatki = " Krótka notatka na temat testu"
 r = symarch.create_proba('poussile0')
-proba, zdjecia, obliczenia = symarch.create_run(r)#, #ewrite=1, test='run001')
+proba, zdjecia, obliczenia = symarch.create_run(r)#, rewrite=1, test='run001')
 
 #### New Re and omega calculations ############################################
 H = 0.05 # wielkość geometryczna harakterystyczna
@@ -228,7 +228,7 @@ u1[0,1:-1,0] = puLB[1:-1]
 t0 = ti.default_timer()
 
 rho_history = []
-
+th = 0
 ############################## Geometria ######################################
 obstacle = fromfunction(lambda x,y: x>10000000 , (ny,nx))       
 obstacle[0,:] = 1; obstacle[-1,:] = 1
@@ -260,7 +260,12 @@ for time in range(maxIter):
     f = obstacling(f, obstacle)
     f = stream(f)
     ## Zapis f
-    f_history[:,:,:,time%100] = f
+    if time > int(maxIter - 1/dt):
+        f_history[:,:,:,th] = f
+        th = th + 1
+        if th == 100:
+            np.save(os.path.join(obliczenia, 'f{0:06d}'.format(image)), f_history)
+            th = 0
     ##Wizualizacja
     if (time%100==0): # 
         t1 = ti.default_timer()
@@ -292,7 +297,7 @@ for time in range(maxIter):
         plt.clf();
         image += 1
         count += 1
-        np.save(os.path.join(obliczenia,'f{0:06d}'.format(image)),f_history)
+        
 #########CURVE FITTING #######################################################
 x = linspace(0,ny,len(u[1,:,0]))
 y = sqrt(u[0]**2+u[1]**2)[:,-1]/uLB
