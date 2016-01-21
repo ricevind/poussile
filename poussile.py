@@ -15,7 +15,7 @@ import os
 ##############Archiwizacja#####################################################
 notatki = " Krótka notatka na temat testu"
 r = symarch.create_proba('poussile0')
-proba, zdjecia, obliczenia = symarch.create_run(r, rewrite=1, test='run001')
+proba, zdjecia, obliczenia = symarch.create_run(r)#, #ewrite=1, test='run001')
 
 #### New Re and omega calculations ############################################
 H = 0.05 # wielkość geometryczna harakterystyczna
