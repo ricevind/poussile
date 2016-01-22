@@ -13,9 +13,9 @@ import symarch; import flow; import profile
 import os
 
 ##############Archiwizacja#####################################################
-notatki = " zmienione pole predkosci w t0 na zerowe w stosunku do t001"
+notatki = " liniowa zależność na wylocie 2xf-2 - f-3 + uy[:,-1]=0"
 r = symarch.create_proba('poussile0')
-proba, zdjecia, obliczenia, run = symarch.create_run(r, rewrite=1, test='run002')#, rewrite=1, test='run001')
+proba, zdjecia, obliczenia, run = symarch.create_run(r)# rewrite=1, test='run002')#, rewrite=1, test='run001')
 
 #### New Re and omega calculations ############################################
 H = 0.05 # wielkość geometryczna harakterystyczna
@@ -220,7 +220,7 @@ f_history = np.ones((9,ny,nx,100))
 image = 0
 count=0
 ######################### Pętla################################################
-maxIter =15000*20 # liczba iteracji
+maxIter =15000*5 # liczba iteracji
 u = vel
 u1 = u.copy()
 u1[0,1:-1,0] = puLB[1:-1]
@@ -231,8 +231,8 @@ rho_history = []
 th = 0
 ############################## Geometria ######################################
 obstacle = fromfunction(lambda x,y: x>10000000 , (ny,nx))       
+#obstacle = fromfunction(lambda y,x: (x-100)**2+(y-20)**2<10**2, (ny,nx))
 obstacle[0,:] = 1; obstacle[-1,:] = 1
-
 for time in range(maxIter):
     rho = sumpop(f)
     rho_history.append(abs(average(rho)))
@@ -244,11 +244,11 @@ for time in range(maxIter):
     f[5,1:-1,0] = f[7,1:-1,0] - (1/2)*(f[2,1:-1,0] - f[4,1:-1,0]) + (1/6)*rho[1:-1,0]*u1[0,1:-1,0] 
     f[8,1:-1,0] = f[6,1:-1,0] + (1/2)*(f[2,1:-1,0] - f[4,1:-1,0]) + (1/6)*rho[1:-1,0]*u1[0,1:-1,0] 
     # Wylot
-    f[i1,1:-1,-1] = f[i1,1:-1,-2] 
+    f[i1,1:-1,-1] = 2*f[i1,1:-1,-2] - f[i1,1:-1,-3] 
     
     ## Pole prędkości
     u = ulocity(f, rho)
-
+    u[1,:,-1] = 0
     
     ## Lattice Boltzmann
     feq = rownowaga(rho,u)

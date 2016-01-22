@@ -62,5 +62,5 @@ def create_run(dir_glowny, rewrite=None, test=None):
     os.mkdir(zdjecia_path)
     obliczenia_path = os.path.join(test_path, 'Obliczenia')
     os.mkdir(obliczenia_path)
-    return test_path, zdjecia_path, obliczenia_path
+    return test_path, zdjecia_path, obliczenia_path, name
 
