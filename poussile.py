@@ -9,13 +9,13 @@ import numba as nb
 import timeit as ti
 from numpy import *; from numpy.linalg import *; import numpy as np
 import matplotlib.pyplot as plt; from matplotlib import cm
-import symarch 
+import symarch; import flow; import profile
 import os
 
 ##############Archiwizacja#####################################################
-notatki = " Krótka notatka na temat testu"
+notatki = " zmienione pole predkosci w t0 na zerowe w stosunku do t001"
 r = symarch.create_proba('poussile0')
-proba, zdjecia, obliczenia = symarch.create_run(r)#, rewrite=1, test='run001')
+proba, zdjecia, obliczenia, run = symarch.create_run(r, rewrite=1, test='run002')#, rewrite=1, test='run001')
 
 #### New Re and omega calculations ############################################
 H = 0.05 # wielkość geometryczna harakterystyczna
@@ -52,8 +52,8 @@ print('tau = {}'.format(1/omega))
 #### Profil kwadratowy wlot
 a = uLB/((ny**2)/4 - (ny**2)/2)
 x = np.linspace(0,ny,ny)
-profile = lambda x: a*x*(x-ny)
-puLB = uLB*np.ones(x.shape)#profile(x)
+profiles = lambda x: a*x*(x-ny)
+puLB = uLB*np.ones(x.shape)#profiles(x)
 
 
 parametry = ['Re', 'ny', 'nx', 'uLB', 'tau', 'notatki']
@@ -211,7 +211,7 @@ def power_law(s,n=1,m=niLB,li=100):
     
 ####################################### Inicjalizacja #########################
     
-vel = np.ones((2,ny,nx))*uLB # pole prędkości w t = 0
+vel = np.ones((2,ny,nx))*uLB*0 # pole prędkości w t = 0
 rho = np.ones((ny, nx)) # pole gęstości w t = 0
 feq = rownowaga(rho, vel) # równowagowa funkcja rozkładu
 f = feq.copy() # tablica rozkładu dla t-1
@@ -297,8 +297,13 @@ for time in range(maxIter):
         plt.clf();
         image += 1
         count += 1
-        
+
+np.save(os.path.join(obliczenia, 'f{0:06d}'.format(image)), f_history)
 #########CURVE FITTING #######################################################
+
+flow.animate(zdjecia, run, proba)
+profile.save_profile(proba, run, ny,nx,  u, uLB,rho)
+
 x = linspace(0,ny,len(u[1,:,0]))
 y = sqrt(u[0]**2+u[1]**2)[:,-1]/uLB
 #y = u[1][:,-1]/uLB

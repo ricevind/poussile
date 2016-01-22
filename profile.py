@@ -5,8 +5,28 @@
 #@author: ricevind
 ##"""
 ##
-x = linspace(0,ny,len(u[1,:,0]))
-y = sqrt(u[0]**2+u[1]**2)[:,-1]/uLB
+import os
+from numpy import linspace, sqrt
+import matplotlib.pylab as plt
+def save_profile(path, name, ny, nx,  u, uLB, rho):
+    x = linspace(0,ny,len(u[1,:,0]))
+    y = sqrt(u[0]**2+u[1]**2)[:,-1]/uLB
+    ff = lambda r: 1.5*(1-(r/(ny/2))**2)
+    xx = linspace(0,ny/2,25)
+    yy = ff(xx)
+    plt.subplot(2,1,1)
+    plt.plot(x,y)
+    plt.plot(xx+ny/2, yy,'o')
+    plt.plot(xx, yy[::-1],'o')
+    
+    plt.subplot(2,1,2)
+    xxx = linspace(0,nx,len(rho[1,1:]))
+    rhol = rho[int(ny/2),1:]
+    plt.plot(xxx, rhol)
+    plt.savefig(os.path.join(path, name+'.png'))
+    
+    
+    
 #y = u[0,:,-1]/uLB
 #y0 = ud[:,200]
 
@@ -15,17 +35,14 @@ y = sqrt(u[0]**2+u[1]**2)[:,-1]/uLB
 #z = np.polyfit(x,y,2)
 #f = np.poly1d(z)
 
-ff = lambda r: 1.5*(1-(r/(ny/2))**2)
 
-xx = linspace(0,ny/2,25)
-yy = ff(xx)
+
 #
 #
 ##
-plt.plot(x,y)
+
 #plt.plot(x,y0)
-plt.plot(xx+ny/2, yy,'o')
-plt.plot(xx, yy[::-1],'o')
+
 #plt.savefig('rura_tau_5525ny90_Re497_poussile_n1_d00038'+".png")
 #
 ####
