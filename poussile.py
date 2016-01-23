@@ -13,8 +13,8 @@ import symarch; import flow; import profile
 import os
 
 ##############Archiwizacja#####################################################
-notatki = " skopiowanie ostatnich 20 komorek (cale f) :bez average(które nie ma wpływu) ale z miana polozenia wlotu"
-r = symarch.create_proba('poussile_20_ostatnich')
+notatki = "pierwsza implementacja modefied extrapolation method: z rho jako 1 rho liczone po warunkach brzegowych wieksza dokladnosc"
+r = symarch.create_proba('poussile_modextrapolation')
 proba, zdjecia, obliczenia, run = symarch.create_run(r)# rewrite=1, test='run002')#, rewrite=1, test='run001')
 
 #### New Re and omega calculations ############################################
@@ -32,7 +32,7 @@ Re = H*U/ni # Realne Re
 t0p = H/U # czas odniesienia
 ud = U*t0p/H # bezwymiarowa prędkość harakterystyczna
 
-ny = 40 # wybieram
+ny = 80 # wybieram
 
 
 dy = 1/ny #jednostka siatki geometryczna w kierunku harakterystycznym
@@ -213,8 +213,10 @@ def power_law(s,n=1,m=niLB,li=100):
     
 vel = np.ones((2,ny,nx))*uLB*0 # pole prędkości w t = 0
 rho = np.ones((ny, nx)) # pole gęstości w t = 0
+rho1 = np.ones((ny, nx))
 feq = rownowaga(rho, vel) # równowagowa funkcja rozkładu
 f = feq.copy() # tablica rozkładu dla t-1
+feq1 = feq.copy()
 f_history = np.ones((9,ny,nx,100))
 
 image = 0
@@ -233,80 +235,92 @@ th = 0
 obstacle = fromfunction(lambda x,y: x>10000000 , (ny,nx))       
 #obstacle = fromfunction(lambda y,x: (x-100)**2+(y-20)**2<10**2, (ny,nx))
 obstacle[0,:] = 1; obstacle[-1,:] = 1
-for time in range(maxIter):
-    rho = sumpop(f)
-    rho_history.append(abs(average(rho)))
-    ##Implementacja warunków brzegowych
-    # Wlot    
-    rho[1:-1,0] = 1./(1.-u1[0,1:-1,0]) * (sumpop(f[i2,1:-1,0])+2.*sumpop(f[i1,1:-1,0]))
-#    rho = rho - (average(rho) - 1)
-    
-    # Wylot
-#    f[i1,1:-1,-1] = 2*f[i1,1:-1,-2] - f[i1,1:-1,-3] 
-    
-    
-    ## Pole prędkości
-    u = ulocity(f, rho)
-#    u[1,:,-1] = 0
-    
-    ## Lattice Boltzmann
-    feq = rownowaga(rho,u)
-    ## Uwzględnienie lepkości ######
-#    s = shear(f,feq,aomega)     ###
-#    aomega = power_law(s,1)     ###
-    ################################
-    f = collision(f,feq,aomega)
-    f = obstacling(f, obstacle)
-    f = stream(f)
-    f[:,1:-1,-20:] = f[:,1:-1,-21,newaxis] 
-    f[1,1:-1,0] = f[3,1:-1,0] + (2/3)*rho[1:-1,0]*u1[0,1:-1,0]
-    f[5,1:-1,0] = f[7,1:-1,0] - (1/2)*(f[2,1:-1,0] - f[4,1:-1,0]) + (1/6)*rho[1:-1,0]*u1[0,1:-1,0] 
-    f[8,1:-1,0] = f[6,1:-1,0] + (1/2)*(f[2,1:-1,0] - f[4,1:-1,0]) + (1/6)*rho[1:-1,0]*u1[0,1:-1,0] 
-    ## Zapis f
-    if time > int(maxIter - 1/dt):
-        f_history[:,:,:,th] = f
-        th = th + 1
-        if th == 100:
-            np.save(os.path.join(obliczenia, 'f{0:06d}'.format(image)), f_history)
-            th = 0
-    ##Wizualizacja
-    if (time%100==0): # 
-        t1 = ti.default_timer()
-        deltaT = t1 - t0
-        print('100 petli wykonuje sie ', deltaT, ' sekund', count)
-        print('###########################')
-        print( 1/omega,average(rho))
-        t0 = ti.default_timer()
+try:
+    for time in range(maxIter):
         
-#        plt.subplot(4, 1, 1)
-#        plt.imshow(u[1,:,0:50],vmin=-uLB*.15, vmax=uLB*.15, interpolation='none')#,cmap=cm.seismic
-#        plt.colorbar()
-
-        plt.subplot(3, 1, 1)
-        plt.imshow(sqrt(u[0]**2+u[1]**2),vmin=0, vmax=uLB*1.5)#,cmap=cm.seismic
-        plt.colorbar()
-        plt.title('tau = {:f}'.format(1/omega))        
+    #    rho = rho - (average(rho) - 1)
+        f[1,1:-1,0] = f[3,1:-1,0] + (2/3)*rho[1:-1,0]*u1[0,1:-1,0]
+        f[5,1:-1,0] = f[7,1:-1,0] - (1/2)*(f[2,1:-1,0] - f[4,1:-1,0]) + (1/6)*rho[1:-1,0]*u1[0,1:-1,0] 
+        f[8,1:-1,0] = f[6,1:-1,0] + (1/2)*(f[2,1:-1,0] - f[4,1:-1,0]) + (1/6)*rho[1:-1,0]*u1[0,1:-1,0] 
+        # Wylot
+        f[3,1:-1,-1] = feq1[3,1:-1,-1] + (feq[1,1:-1,-1] - feq[1,1:-1,-1] )
+        f[[6,7],1:-1,-1] = 2*f[[6,7],1:-1,-2] - f[[6,7],1:-1,-3] 
+#        f[i3,1:-1,-20:] = f[i3,1:-1,-21,newaxis] 
+        rho = sumpop(f)
+        rho_history.append(abs(average(rho)))
+        ##Implementacja warunków brzegowych
+        # Wlot    
+        rho[1:-1,0] = 1./(1.-u1[0,1:-1,0]) * (sumpop(f[i2,1:-1,0])+2.*sumpop(f[i1,1:-1,0]))
+        ## Pole prędkości
+        u = ulocity(f, rho)
+#        u[1,:,-1] = 0
         
-        plt.subplot(3, 1, 2)
-        plt.imshow(rho,vmin=0, vmax=1.5 )#,cmap=cm.seismic
-        plt.title('rho')   
+        ## Lattice Boltzmann
+        feq1 = rownowaga(rho1,u)
+        feq = rownowaga(rho,u)
+        ## Uwzględnienie lepkości ######
+    #    s = shear(f,feq,aomega)     ###
+    #    aomega = power_law(s,1)     ###
+        ################################
+        f = collision(f,feq,aomega)
+        f = obstacling(f, obstacle)
+        f = stream(f)
         
-        plt.subplot(3, 1,3)
-        plt.title(' history rho')
-        plt.plot(linspace(0,len(rho_history),len(rho_history)),rho_history)
-        plt.xlim([0,maxIter])        
         
-        plt.savefig(os.path.join(zdjecia,'f{0:06d}.png'.format(image)))
-        plt.clf();
-        image += 1
-        count += 1
-
-np.save(os.path.join(obliczenia, 'f{0:06d}'.format(image)), f_history)
-#########CURVE FITTING #######################################################
-
-flow.animate(zdjecia, run, proba)
-profile.save_profile(proba, run, ny,nx,  u, uLB,rho)
-
+        ## Zapis f
+        if time > int(maxIter - 1/dt):
+            f_history[:,:,:,th] = f
+            th = th + 1
+            if th == 100:
+                np.save(os.path.join(obliczenia, 'f{0:06d}'.format(image)), f_history)
+                th = 0
+        ##Wizualizacja
+        if (time%100==0): # 
+            t1 = ti.default_timer()
+            deltaT = t1 - t0
+            print('100 petli wykonuje sie ', deltaT, ' sekund', count)
+            print('###########################')
+            print( 1/omega,average(rho))
+            t0 = ti.default_timer()
+            
+    #        plt.subplot(4, 1, 1)
+    #        plt.imshow(u[1,:,0:50],vmin=-uLB*.15, vmax=uLB*.15, interpolation='none')#,cmap=cm.seismic
+    #        plt.colorbar()
+    
+            plt.subplot(3, 1, 1)
+            plt.imshow(sqrt(u[0]**2+u[1]**2),vmin=0, vmax=uLB*1.5)#,cmap=cm.seismic
+            plt.colorbar()
+            plt.title('tau = {:f}'.format(1/omega))        
+            
+            plt.subplot(3, 1, 2)
+            plt.imshow(rho,vmin=0, vmax=1.5 )#,cmap=cm.seismic
+            plt.title('rho')   
+            
+            plt.subplot(3, 1,3)
+            plt.title(' history rho')
+            plt.plot(linspace(0,len(rho_history),len(rho_history)),rho_history)
+            plt.xlim([0,maxIter])        
+            
+            plt.savefig(os.path.join(zdjecia,'f{0:06d}.png'.format(image)))
+            plt.clf();
+            image += 1
+            count += 1
+    
+    np.save(os.path.join(obliczenia, 'f{0:06d}'.format(image)), f_history)
+    ########earlier finished##############manual####################333
+    f_last = f
+    np.save(os.path.join(obliczenia, 'last f'), f_last)
+    #########CURVE FITTING #######################################################
+    
+    flow.animate(zdjecia, run, proba)
+    profile.save_profile(proba, run, ny,nx,  u, uLB,rho)
+except KeyboardInterrupt:
+    f_last = f
+    np.save(os.path.join(obliczenia, 'last f'), f_last)
+    flow.animate(zdjecia, run, proba)
+    profile.save_profile(proba, run, ny,nx,  u, uLB,rho)
+    
+    
 x = linspace(0,ny,len(u[1,:,0]))
 y = sqrt(u[0]**2+u[1]**2)[:,-1]/uLB
 #y = u[1][:,-1]/uLB
