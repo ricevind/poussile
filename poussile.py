@@ -13,8 +13,8 @@ import symarch; import flow; import profile
 import os
 
 ##############Archiwizacja#####################################################
-notatki = " liniowa zależność na wylocie 2xf-2 - f-3 + uy[:,-1]=0"
-r = symarch.create_proba('poussile0')
+notatki = " skopiowanie ostatnich 20 komorek (cale f) :bez average(które nie ma wpływu) ale z miana polozenia wlotu"
+r = symarch.create_proba('poussile_20_ostatnich')
 proba, zdjecia, obliczenia, run = symarch.create_run(r)# rewrite=1, test='run002')#, rewrite=1, test='run001')
 
 #### New Re and omega calculations ############################################
@@ -239,16 +239,15 @@ for time in range(maxIter):
     ##Implementacja warunków brzegowych
     # Wlot    
     rho[1:-1,0] = 1./(1.-u1[0,1:-1,0]) * (sumpop(f[i2,1:-1,0])+2.*sumpop(f[i1,1:-1,0]))
-
-    f[1,1:-1,0] = f[3,1:-1,0] + (2/3)*rho[1:-1,0]*u1[0,1:-1,0]
-    f[5,1:-1,0] = f[7,1:-1,0] - (1/2)*(f[2,1:-1,0] - f[4,1:-1,0]) + (1/6)*rho[1:-1,0]*u1[0,1:-1,0] 
-    f[8,1:-1,0] = f[6,1:-1,0] + (1/2)*(f[2,1:-1,0] - f[4,1:-1,0]) + (1/6)*rho[1:-1,0]*u1[0,1:-1,0] 
+#    rho = rho - (average(rho) - 1)
+    
     # Wylot
-    f[i1,1:-1,-1] = 2*f[i1,1:-1,-2] - f[i1,1:-1,-3] 
+#    f[i1,1:-1,-1] = 2*f[i1,1:-1,-2] - f[i1,1:-1,-3] 
+    
     
     ## Pole prędkości
     u = ulocity(f, rho)
-    u[1,:,-1] = 0
+#    u[1,:,-1] = 0
     
     ## Lattice Boltzmann
     feq = rownowaga(rho,u)
@@ -259,6 +258,10 @@ for time in range(maxIter):
     f = collision(f,feq,aomega)
     f = obstacling(f, obstacle)
     f = stream(f)
+    f[:,1:-1,-20:] = f[:,1:-1,-21,newaxis] 
+    f[1,1:-1,0] = f[3,1:-1,0] + (2/3)*rho[1:-1,0]*u1[0,1:-1,0]
+    f[5,1:-1,0] = f[7,1:-1,0] - (1/2)*(f[2,1:-1,0] - f[4,1:-1,0]) + (1/6)*rho[1:-1,0]*u1[0,1:-1,0] 
+    f[8,1:-1,0] = f[6,1:-1,0] + (1/2)*(f[2,1:-1,0] - f[4,1:-1,0]) + (1/6)*rho[1:-1,0]*u1[0,1:-1,0] 
     ## Zapis f
     if time > int(maxIter - 1/dt):
         f_history[:,:,:,th] = f
